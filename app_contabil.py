@@ -109,17 +109,9 @@ h1, h2, h3, h4, p, label, span {
     justify-content: center;
 }
 
-.kpi-icon.green {
-    background: linear-gradient(135deg, #0bb85d, #047a45);
-}
-
-.kpi-icon.blue {
-    background: linear-gradient(135deg, #1d7ff0, #044d9b);
-}
-
-.kpi-icon.red {
-    background: linear-gradient(135deg, #c94040, #8b2525);
-}
+.kpi-icon.green { background: linear-gradient(135deg, #0bb85d, #047a45); }
+.kpi-icon.blue { background: linear-gradient(135deg, #1d7ff0, #044d9b); }
+.kpi-icon.red { background: linear-gradient(135deg, #c94040, #8b2525); }
 
 .kpi-symbol {
     font-size: 34px;
@@ -139,17 +131,9 @@ h1, h2, h3, h4, p, label, span {
     margin-top: 4px;
 }
 
-.kpi-value.green {
-    color: #55d85a !important;
-}
-
-.kpi-value.blue {
-    color: #3f92ff !important;
-}
-
-.kpi-value.red {
-    color: #ff5c5c !important;
-}
+.kpi-value.green { color: #55d85a !important; }
+.kpi-value.blue { color: #3f92ff !important; }
+.kpi-value.red { color: #ff5c5c !important; }
 
 .kpi-change {
     margin-top: 6px;
@@ -157,26 +141,8 @@ h1, h2, h3, h4, p, label, span {
     font-weight: 800;
 }
 
-.kpi-change.red {
-    color: #ff5151 !important;
-}
-
-.kpi-change.green {
-    color: #55d85a !important;
-}
-
-.dashboard-grid-main {
-    display: grid;
-    grid-template-columns: 1.1fr 0.95fr;
-    gap: 18px;
-    margin-bottom: 18px;
-}
-
-.dashboard-grid-bottom {
-    display: grid;
-    grid-template-columns: 1fr 0.92fr 1.05fr;
-    gap: 18px;
-}
+.kpi-change.red { color: #ff5151 !important; }
+.kpi-change.green { color: #55d85a !important; }
 
 .panel-card {
     background: rgba(7, 28, 48, 0.78);
@@ -192,13 +158,6 @@ h1, h2, h3, h4, p, label, span {
     color: #68e35f !important;
     margin-bottom: 14px;
     text-transform: uppercase;
-}
-
-.estrutura-box {
-    display: grid;
-    grid-template-columns: 1fr 0.95fr;
-    gap: 20px;
-    align-items: center;
 }
 
 .estrutura-info {
@@ -219,15 +178,8 @@ h1, h2, h3, h4, p, label, span {
     font-size: 19px;
 }
 
-.info-blue {
-    color: #3f92ff !important;
-    font-weight: 800;
-}
-
-.info-green {
-    color: #68e35f !important;
-    font-weight: 800;
-}
+.info-blue { color: #3f92ff !important; font-weight: 800; }
+.info-green { color: #68e35f !important; font-weight: 800; }
 
 .asset-table {
     width: 100%;
@@ -319,13 +271,8 @@ h1, h2, h3, h4, p, label, span {
     font-weight: 900;
 }
 
-.indicator-value.green {
-    color: #68e35f !important;
-}
-
-.indicator-value.blue {
-    color: #3f92ff !important;
-}
+.indicator-value.green { color: #68e35f !important; }
+.indicator-value.blue { color: #3f92ff !important; }
 
 .analysis-card {
     background: rgba(8, 27, 47, 0.72);
@@ -340,6 +287,34 @@ h1, h2, h3, h4, p, label, span {
 .warning { border-left-color: #f59e0b; }
 .info { border-left-color: #38bdf8; }
 .risk { border-left-color: #ef4444; }
+
+.glossario-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    margin-top: 20px;
+}
+
+.glossario-card {
+    background: rgba(7, 28, 48, 0.78);
+    border: 1px solid rgba(137, 190, 230, 0.28);
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.22);
+    margin-bottom: 18px;
+}
+
+.glossario-card h3 {
+    margin-top: 0;
+    color: #68e35f !important;
+    font-size: 22px;
+}
+
+.glossario-card p {
+    color: rgba(255,255,255,0.78) !important;
+    line-height: 1.55;
+    font-size: 15px;
+}
 
 [data-testid="stMetric"] {
     background: #0b2239;
@@ -390,13 +365,16 @@ hr {
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    .dashboard-grid-main,
-    .dashboard-grid-bottom,
-    .estrutura-box {
+    .glossario-grid {
         grid-template-columns: 1fr;
     }
 }
 
+@media (max-width: 800px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -508,11 +486,11 @@ def grafico_comparativo():
 def card_analise(titulo, texto, tipo="info"):
     st.markdown(
         f"""
-        <div class="analysis-card {tipo}">
-            <h3>{titulo}</h3>
-            <p>{texto}</p>
-        </div>
-        """,
+<div class="analysis-card {tipo}">
+<h3>{titulo}</h3>
+<p>{texto}</p>
+</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -529,15 +507,11 @@ def mostrar_pdf(caminho_pdf, titulo="Documento PDF"):
         base64_pdf = base64.b64encode(f.read()).decode("utf-8")
 
     st.markdown(f"""
-    <div class="pdf-card">
-        <h3>{titulo}</h3>
-        <iframe
-            class="pdf-frame"
-            src="data:application/pdf;base64,{base64_pdf}"
-            type="application/pdf">
-        </iframe>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="pdf-card">
+<h3>{titulo}</h3>
+<iframe class="pdf-frame" src="data:application/pdf;base64,{base64_pdf}" type="application/pdf"></iframe>
+</div>
+""", unsafe_allow_html=True)
 
     with open(arquivo, "rb") as f:
         st.download_button(
@@ -546,6 +520,15 @@ def mostrar_pdf(caminho_pdf, titulo="Documento PDF"):
             file_name=arquivo.name,
             mime="application/pdf"
         )
+
+
+def glossario_item(titulo, texto):
+    st.markdown(f"""
+<div class="glossario-card">
+<h3>{titulo}</h3>
+<p>{texto}</p>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -585,34 +568,37 @@ dvp = pd.DataFrame({
 
 
 # ============================================================
-# SIDEBAR
+# MENU
 # ============================================================
+
+opcoes_menu = [
+    "Resumo Executivo",
+    "Análises Patrimoniais",
+    "Análises Orçamentárias",
+    "Análises Financeiras",
+    "Indicadores",
+    "Demonstrações Contábeis",
+    "Notas Explicativas",
+    "Glossário"
+]
 
 st.sidebar.markdown("## DCF / UnB")
 st.sidebar.markdown("Painel")
 
-menu = st.sidebar.radio(
-    "Menu",
-    [
-        "Resumo Executivo",
-        "Análises Patrimoniais",
-        "Análises Orçamentárias",
-        "Análises Financeiras",
-        "Indicadores",
-        "Demonstrações Contábeis",
-        "Notas Explicativas"
-    ]
-)
+if "menu" not in st.session_state:
+    st.session_state["menu"] = "Resumo Executivo"
+
+menu = st.sidebar.radio("Menu", opcoes_menu, key="menu")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 <div style="border:1px solid rgba(255,255,255,0.22); border-radius:14px; padding:18px; margin-top:30px;">
-    <div style="font-size:14px; color:rgba(255,255,255,0.75);">Atualizado em</div>
-    <div style="font-weight:800; margin-top:6px;">28/04/2026</div>
-    <br>
-    <div style="border:1px solid #53d85a; color:#53d85a; border-radius:10px; padding:12px; text-align:center; font-weight:800;">
-        Baixar Relatório (PDF)
-    </div>
+<div style="font-size:14px; color:rgba(255,255,255,0.75);">Atualizado em</div>
+<div style="font-weight:800; margin-top:6px;">28/04/2026</div>
+<br>
+<div style="border:1px solid #53d85a; color:#53d85a; border-radius:10px; padding:12px; text-align:center; font-weight:800;">
+Baixar Relatório (PDF)
+</div>
 </div>
 <br><br>
 <div style="text-align:center; color:rgba(255,255,255,0.70); font-size:13px;">
@@ -622,7 +608,7 @@ Fonte: SIAFI
 
 
 # ============================================================
-# RESUMO EXECUTIVO — NOVO DASHBOARD
+# RESUMO EXECUTIVO
 # ============================================================
 
 if menu == "Resumo Executivo":
@@ -700,21 +686,17 @@ if menu == "Resumo Executivo":
 <strong>R$ 8,25 Bi</strong><br>
 <span class="info-green">97,43%</span>
 </div>
-
 <div class="info-row">
 <h4>Ativo Circulante</h4>
 <strong>R$ 218,02 Mi</strong><br>
 <span class="info-blue">2,57%</span>
 </div>
-
 <hr>
-
 <div class="info-row">
 <h4>Passivo Exigível</h4>
 <strong>R$ 1,03 Bi</strong><br>
 <span class="info-blue">12,20%</span>
 </div>
-
 <div class="info-row">
 <h4>Patrimônio Líquido</h4>
 <strong>R$ 7,44 Bi</strong><br>
@@ -732,7 +714,6 @@ if menu == "Resumo Executivo":
 """, unsafe_allow_html=True)
 
         st.plotly_chart(grafico_comparativo(), use_container_width=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
     col_tabela, col_destaques, col_indicadores = st.columns([1.05, 0.95, 1.08])
@@ -741,33 +722,28 @@ if menu == "Resumo Executivo":
         st.markdown("""
 <div class="panel-card">
 <div class="panel-title">Composição do Ativo — 2025</div>
-
 <table class="asset-table">
 <tr>
 <th>Grupo</th>
 <th>Valor (R$)</th>
 <th>% Part.</th>
 </tr>
-
 <tr>
 <td>● Ativo Circulante</td>
 <td>218.019.429,71</td>
 <td>2,57%</td>
 </tr>
-
 <tr>
 <td>● Ativo Não Circulante</td>
 <td>8.254.525.264,63</td>
 <td>97,43%</td>
 </tr>
-
 <tr>
 <td><strong>Total do Ativo</strong></td>
 <td><strong>8.472.544.694,34</strong></td>
 <td><strong>100,00%</strong></td>
 </tr>
 </table>
-
 <div class="notice-box">
 O Ativo Não Circulante representa 97,43% do total do ativo, com destaque para bens móveis e imóveis.
 </div>
@@ -778,27 +754,22 @@ O Ativo Não Circulante representa 97,43% do total do ativo, com destaque para b
         st.markdown("""
 <div class="panel-card">
 <div class="panel-title">Destaques do Exercício</div>
-
 <div class="highlight-item">
 <div class="highlight-bullet green">↗</div>
 <div>O ativo total apresentou redução de 0,42% em relação a 2024.</div>
 </div>
-
 <div class="highlight-item">
 <div class="highlight-bullet blue">▣</div>
 <div>O passivo exigível aumentou 22,15%, principalmente por obrigações trabalhistas.</div>
 </div>
-
 <div class="highlight-item">
 <div class="highlight-bullet green">✓</div>
 <div>O patrimônio líquido reduziu 2,92%, impactado pelo resultado patrimonial negativo.</div>
 </div>
-
 <div class="highlight-item">
 <div class="highlight-bullet red">↘</div>
 <div>O resultado patrimonial de 2025 foi deficitário em R$ 220,65 milhões.</div>
 </div>
-
 </div>
 """, unsafe_allow_html=True)
 
@@ -806,27 +777,22 @@ O Ativo Não Circulante representa 97,43% do total do ativo, com destaque para b
         st.markdown("""
 <div class="panel-card">
 <div class="panel-title">Indicadores Patrimoniais</div>
-
 <div class="indicator-row">
 <div class="indicator-label">Participação do PL no Ativo<br>(PL / Ativo Total)</div>
 <div class="indicator-value green">87,80%</div>
 </div>
-
 <div class="indicator-row">
 <div class="indicator-label">Participação do Passivo no Ativo<br>(Passivo / Ativo Total)</div>
 <div class="indicator-value blue">12,20%</div>
 </div>
-
 <div class="indicator-row">
 <div class="indicator-label">Liquidez Corrente<br>(Ativo Circulante / Passivo Circulante)</div>
 <div class="indicator-value green">0,21</div>
 </div>
-
 <div class="indicator-row">
 <div class="indicator-label">Imobilização do Patrimônio<br>(Ativo Não Circulante / PL)</div>
 <div class="indicator-value green">1,11</div>
 </div>
-
 </div>
 """, unsafe_allow_html=True)
 
@@ -838,17 +804,17 @@ UnB — Fundação Universidade de Brasília &nbsp; | &nbsp; Diretoria de Contab
 
 
 # ============================================================
-# DEMAIS PÁGINAS — MANTIDAS
+# DEMAIS PÁGINAS
 # ============================================================
 
 else:
 
     st.markdown("""
-    <div class="bloco">
-        <h1>Demonstrações Contábeis da UnB</h1>
-        <p>Exercício 2025 com comparativo 2024</p>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="bloco">
+<h1>Demonstrações Contábeis da UnB</h1>
+<p>Exercício 2025 com comparativo 2024</p>
+</div>
+""", unsafe_allow_html=True)
 
     if menu == "Análises Patrimoniais":
 
@@ -1106,11 +1072,11 @@ else:
         st.header("Demonstrações Contábeis")
 
         st.markdown("""
-        <div class="bloco">
-        Esta página concentra as demonstrações contábeis em formato PDF para consulta direta.
-        Cada aba apresenta a demonstração correspondente.
-        </div>
-        """, unsafe_allow_html=True)
+<div class="bloco">
+Esta página concentra as demonstrações contábeis em formato PDF para consulta direta.
+Cada aba apresenta a demonstração correspondente.
+</div>
+""", unsafe_allow_html=True)
 
         aba1, aba2, aba3, aba4, aba5 = st.tabs([
             "Balanço Patrimonial",
@@ -1141,9 +1107,138 @@ else:
         st.header("Notas Explicativas")
 
         st.markdown("""
-        <div class="bloco">
-        Esta página apresenta o documento completo das Notas Explicativas das Demonstrações Contábeis.
-        </div>
-        """, unsafe_allow_html=True)
+<div class="bloco">
+Esta página apresenta o documento completo das Notas Explicativas das Demonstrações Contábeis.
+</div>
+""", unsafe_allow_html=True)
 
         mostrar_pdf("notas_explicativas.pdf", "Notas Explicativas")
+
+
+    elif menu == "Glossário":
+
+        st.header("Glossário Contábil e Financeiro")
+
+        st.markdown("""
+<div class="bloco">
+Esta página apresenta conceitos básicos usados no painel, com linguagem acessível para apoiar a leitura das demonstrações contábeis.
+</div>
+""", unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            glossario_item(
+                "Ativo Total",
+                "Representa o conjunto de bens, direitos e demais recursos controlados pela Universidade. Inclui caixa, créditos, estoques, bens móveis, imóveis e outros ativos."
+            )
+
+            glossario_item(
+                "Ativo Circulante",
+                "Compreende os recursos realizáveis no curto prazo, como caixa, equivalentes de caixa, créditos a receber e outros valores que podem ser convertidos em recursos em menor prazo."
+            )
+
+            glossario_item(
+                "Ativo Não Circulante",
+                "Representa os ativos de longo prazo, como bens móveis, imóveis, investimentos, intangíveis e outros elementos que permanecem na entidade por período mais longo."
+            )
+
+            glossario_item(
+                "Passivo Exigível",
+                "Corresponde às obrigações presentes da entidade, como fornecedores, encargos, obrigações trabalhistas, previdenciárias e demais compromissos reconhecidos contabilmente."
+            )
+
+            glossario_item(
+                "Patrimônio Líquido",
+                "É a diferença entre o Ativo e o Passivo. No setor público, evidencia a situação líquida patrimonial acumulada da entidade."
+            )
+
+            glossario_item(
+                "Resultado Patrimonial",
+                "É a diferença entre as Variações Patrimoniais Aumentativas e as Variações Patrimoniais Diminutivas. Pode indicar superávit ou déficit patrimonial."
+            )
+
+            glossario_item(
+                "DVP",
+                "A Demonstração das Variações Patrimoniais evidencia as alterações que aumentaram ou diminuíram o patrimônio durante o exercício."
+            )
+
+            glossario_item(
+                "VPA",
+                "Variações Patrimoniais Aumentativas. Representam eventos que aumentam o patrimônio, como receitas, transferências recebidas e outros acréscimos patrimoniais."
+            )
+
+        with col2:
+            glossario_item(
+                "VPD",
+                "Variações Patrimoniais Diminutivas. Representam eventos que reduzem o patrimônio, como despesas, depreciação, perdas e outras diminuições patrimoniais."
+            )
+
+            glossario_item(
+                "Balanço Financeiro",
+                "Demonstra os ingressos e dispêndios financeiros do exercício, evidenciando a movimentação financeira da entidade."
+            )
+
+            glossario_item(
+                "DFC",
+                "A Demonstração dos Fluxos de Caixa apresenta os fluxos de entrada e saída de caixa classificados por atividades operacionais, de investimento e financiamento."
+            )
+
+            glossario_item(
+                "Balanço Orçamentário",
+                "Compara as receitas e despesas previstas com as efetivamente realizadas, permitindo avaliar a execução orçamentária."
+            )
+
+            glossario_item(
+                "Empenho",
+                "É o primeiro estágio da despesa pública. Representa a reserva de dotação orçamentária para uma obrigação assumida pela administração."
+            )
+
+            glossario_item(
+                "Liquidação",
+                "É o estágio em que se verifica o direito adquirido pelo credor, com base em documentos que comprovem a entrega do bem ou a prestação do serviço."
+            )
+
+            glossario_item(
+                "Pagamento",
+                "É o estágio final da despesa pública, quando ocorre a efetiva saída de recursos financeiros para quitar a obrigação."
+            )
+
+            glossario_item(
+                "Restos a Pagar",
+                "São despesas empenhadas e não pagas até o encerramento do exercício. Podem ser processados ou não processados, conforme tenham sido liquidados ou não."
+            )
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            glossario_item(
+                "Passivo / Ativo",
+                "Indicador que mostra a participação das obrigações em relação ao total de ativos. Quanto maior, maior a pressão das obrigações sobre o patrimônio."
+            )
+
+            glossario_item(
+                "PL / Ativo",
+                "Indicador que mostra quanto do ativo é financiado pelo patrimônio líquido. No painel, ajuda a visualizar a predominância do patrimônio líquido na estrutura patrimonial."
+            )
+
+            glossario_item(
+                "Liquidez Corrente",
+                "Indicador que relaciona Ativo Circulante e Passivo Circulante. Ajuda a avaliar a capacidade de cumprir obrigações de curto prazo com recursos de curto prazo."
+            )
+
+        with col4:
+            glossario_item(
+                "Imobilização do Patrimônio",
+                "Indicador que relaciona o Ativo Não Circulante com o Patrimônio Líquido, mostrando quanto do patrimônio está aplicado em ativos de longo prazo."
+            )
+
+            glossario_item(
+                "Dotação Atualizada",
+                "Valor autorizado no orçamento após alterações orçamentárias, como créditos adicionais, cancelamentos e remanejamentos."
+            )
+
+            glossario_item(
+                "Notas Explicativas",
+                "Documento complementar às demonstrações contábeis. Explica critérios, saldos relevantes, eventos significativos e informações necessárias para melhor compreensão dos demonstrativos."
+            )
