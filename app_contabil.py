@@ -288,13 +288,6 @@ h1, h2, h3, h4, p, label, span {
 .info { border-left-color: #38bdf8; }
 .risk { border-left-color: #ef4444; }
 
-.glossario-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
-    margin-top: 20px;
-}
-
 .glossario-card {
     background: rgba(7, 28, 48, 0.78);
     border: 1px solid rgba(137, 190, 230, 0.28);
@@ -364,9 +357,6 @@ hr {
 @media (max-width: 1200px) {
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
-    }
-    .glossario-grid {
-        grid-template-columns: 1fr;
     }
 }
 
@@ -531,6 +521,10 @@ def glossario_item(titulo, texto):
 """, unsafe_allow_html=True)
 
 
+def formatar_percentual(valor):
+    return f"{valor * 100:.1f}%".replace(".", ",")
+
+
 # ============================================================
 # DADOS
 # ============================================================
@@ -565,6 +559,15 @@ dvp = pd.DataFrame({
     "Grupo": ["VPA", "VPD", "Resultado Patrimonial"],
     "Valor": [5.82, 6.04, -0.22065]
 })
+
+dotacao = 4.90
+empenhado = 4.62
+liquidado = 4.41
+pago = 4.28
+
+qeoc = empenhado / dotacao
+qldc = liquidado / empenhado
+qdpc = pago / liquidado
 
 
 # ============================================================
@@ -1022,6 +1025,105 @@ else:
 
         st.header("Indicadores")
 
+        st.markdown("""
+<div class="bloco">
+Esta página apresenta indicadores patrimoniais, orçamentários, operacionais e financeiros para apoio à leitura gerencial das demonstrações contábeis.
+</div>
+""", unsafe_allow_html=True)
+
+        st.subheader("Indicadores de Execução da Despesa")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "QEOC",
+                formatar_percentual(qeoc),
+                "Empenhado / Dotação"
+            )
+
+        with col2:
+            st.metric(
+                "QLDC",
+                formatar_percentual(qldc),
+                "Liquidado / Empenhado"
+            )
+
+        with col3:
+            st.metric(
+                "QDPC",
+                formatar_percentual(qdpc),
+                "Pago / Liquidado"
+            )
+
+        st.divider()
+
+        indicadores_exec = pd.DataFrame({
+            "KPI": [
+                "QEOC",
+                "QLDC",
+                "QDPC"
+            ],
+            "Denominação": [
+                "Quociente da Execução Orçamentária da Despesa Corrente",
+                "Quociente da Liquidação da Despesa Corrente",
+                "Quociente da Despesa Corrente Paga"
+            ],
+            "Fórmula": [
+                "Despesa Empenhada / Dotação Atualizada",
+                "Despesa Liquidada / Despesa Empenhada",
+                "Despesa Paga / Despesa Liquidada"
+            ],
+            "Valor": [
+                formatar_percentual(qeoc),
+                formatar_percentual(qldc),
+                formatar_percentual(qdpc)
+            ],
+            "Meta de Referência": [
+                "≥ 90%",
+                "≥ 90%",
+                "≥ 90%"
+            ],
+            "Finalidade Gerencial": [
+                "Monitorar o comprometimento da dotação disponível",
+                "Avaliar a efetividade da liquidação da despesa",
+                "Monitorar o cumprimento financeiro das despesas liquidadas"
+            ]
+        })
+
+        st.dataframe(indicadores_exec, use_container_width=True, hide_index=True)
+
+        st.divider()
+
+        st.subheader("Análise Gerencial dos Indicadores de Execução")
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            card_analise(
+                "Execução Orçamentária",
+                f"O QEOC alcançou {formatar_percentual(qeoc)}, indicando elevado comprometimento da dotação atualizada em relação ao volume empenhado.",
+                "good"
+            )
+
+        with col_b:
+            card_analise(
+                "Eficiência Operacional",
+                f"O QLDC alcançou {formatar_percentual(qldc)}, demonstrando boa conversão da despesa empenhada em despesa liquidada.",
+                "info"
+            )
+
+        with col_c:
+            card_analise(
+                "Fluxo Financeiro",
+                f"O QDPC alcançou {formatar_percentual(qdpc)}, indicando regularidade no pagamento das despesas já liquidadas.",
+                "good"
+            )
+
+        st.divider()
+
+        st.subheader("Indicadores Consolidados")
+
         indicadores = pd.DataFrame({
             "Indicador": [
                 "Passivo / Ativo",
@@ -1034,9 +1136,9 @@ else:
             "Valor": [
                 "12,2%",
                 "87,8%",
-                "94,3%",
-                "95,5%",
-                "97,1%",
+                formatar_percentual(qeoc),
+                formatar_percentual(qldc),
+                formatar_percentual(qdpc),
                 "2,5%"
             ],
             "Leitura": [
@@ -1056,7 +1158,7 @@ else:
         c1, c2, c3 = st.columns(3)
         c1.metric("Passivo / Ativo", "12,2%", "Baixo")
         c2.metric("PL / Ativo", "87,8%", "Alto")
-        c3.metric("Pago / Liquidado", "97,1%", "Bom")
+        c3.metric("Pago / Liquidado", formatar_percentual(qdpc), "Bom")
 
         st.subheader("Síntese dos indicadores")
 
@@ -1168,6 +1270,16 @@ Esta página apresenta conceitos básicos usados no painel, com linguagem acess�
                 "Variações Patrimoniais Aumentativas. Representam eventos que aumentam o patrimônio, como receitas, transferências recebidas e outros acréscimos patrimoniais."
             )
 
+            glossario_item(
+                "QEOC",
+                "Quociente da Execução Orçamentária da Despesa Corrente. Mede a relação entre a despesa empenhada e a dotação atualizada, indicando o nível de comprometimento orçamentário."
+            )
+
+            glossario_item(
+                "QLDC",
+                "Quociente da Liquidação da Despesa Corrente. Mede a relação entre a despesa liquidada e a despesa empenhada, indicando a efetividade operacional da execução."
+            )
+
         with col2:
             glossario_item(
                 "VPD",
@@ -1209,6 +1321,16 @@ Esta página apresenta conceitos básicos usados no painel, com linguagem acess�
                 "São despesas empenhadas e não pagas até o encerramento do exercício. Podem ser processados ou não processados, conforme tenham sido liquidados ou não."
             )
 
+            glossario_item(
+                "QDPC",
+                "Quociente da Despesa Corrente Paga. Mede a relação entre a despesa paga e a despesa liquidada, indicando o grau de cumprimento financeiro das obrigações já liquidadas."
+            )
+
+            glossario_item(
+                "Meta de Referência ≥ 90%",
+                "Parâmetro gerencial utilizado para avaliar se os indicadores de execução, liquidação e pagamento apresentam desempenho considerado adequado."
+            )
+
         col3, col4 = st.columns(2)
 
         with col3:
@@ -1227,6 +1349,11 @@ Esta página apresenta conceitos básicos usados no painel, com linguagem acess�
                 "Indicador que relaciona Ativo Circulante e Passivo Circulante. Ajuda a avaliar a capacidade de cumprir obrigações de curto prazo com recursos de curto prazo."
             )
 
+            glossario_item(
+                "Dotação Atualizada",
+                "Valor autorizado no orçamento após alterações orçamentárias, como créditos adicionais, cancelamentos e remanejamentos."
+            )
+
         with col4:
             glossario_item(
                 "Imobilização do Patrimônio",
@@ -1234,8 +1361,18 @@ Esta página apresenta conceitos básicos usados no painel, com linguagem acess�
             )
 
             glossario_item(
-                "Dotação Atualizada",
-                "Valor autorizado no orçamento após alterações orçamentárias, como créditos adicionais, cancelamentos e remanejamentos."
+                "Empenhado / Dotação",
+                "Indicador que mede o percentual da dotação orçamentária já comprometido por meio de empenhos emitidos."
+            )
+
+            glossario_item(
+                "Liquidado / Empenhado",
+                "Indicador que mede a parcela da despesa empenhada que já foi efetivamente liquidada, ou seja, reconhecida como obrigação a pagar."
+            )
+
+            glossario_item(
+                "Pago / Liquidado",
+                "Indicador que mede a parcela da despesa liquidada que já foi paga, demonstrando a regularidade do fluxo financeiro."
             )
 
             glossario_item(
