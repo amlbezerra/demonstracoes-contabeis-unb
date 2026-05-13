@@ -529,6 +529,112 @@ def formatar_percentual(valor):
 # DADOS
 # ============================================================
 
+ARQUIVO_EXECUCAO = Path("Execucao_depesa.xlsx")
+
+FONTES_RECURSOS_PROPRIOS = ("1050", "1051", "3050", "3051")
+
+
+def fmt_bi(valor):
+    """Recebe valor em bilhões e formata em R$."""
+    try:
+        if abs(valor) >= 1:
+            return f"R$ {valor:,.2f} Bi".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {valor * 1000:,.2f} Mi".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "R$ 0,00"
+
+
+def fmt_moeda_excel(valor):
+    """Recebe valor cheio do Excel e formata em R$."""
+    try:
+        valor = float(valor)
+        if abs(valor) >= 1_000_000_000:
+            return f"R$ {valor / 1_000_000_000:,.2f} Bi".replace(",", "X").replace(".", ",").replace("X", ".")
+        if abs(valor) >= 1_000_000:
+            return f"R$ {valor / 1_000_000:,.2f} Mi".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "R$ 0,00"
+
+
+def normalizar_numero(valor):
+    if pd.isna(valor):
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    txt = str(valor).strip()
+    txt = txt.replace("R$", "").replace(" ", "")
+    if "," in txt and "." in txt:
+        txt = txt.replace(".", "").replace(",", ".")
+    elif "," in txt:
+        txt = txt.replace(",", ".")
+    try:
+        return float(txt)
+    except Exception:
+        return 0.0
+
+
+def classificar_origem_fonte(fonte):
+    fonte_txt = str(fonte).strip().replace(".0", "")
+    fonte_txt = "".join(ch for ch in fonte_txt if ch.isdigit())
+    if fonte_txt.startswith(FONTES_RECURSOS_PROPRIOS):
+        return "Recursos Próprios"
+    return "Tesouro"
+
+
+@st.cache_data(show_spinner=False)
+def carregar_execucao_despesa():
+    if not ARQUIVO_EXECUCAO.exists():
+        return pd.DataFrame()
+
+    df = pd.read_excel(ARQUIVO_EXECUCAO)
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    colunas_numericas = [
+        "DOTACAO FINAL SEM ALTERACAO DO QDD",
+        "EMPENHADO - EXERCICIO",
+        "EMPENHADO - RP",
+        "EMPENHADO - TOTAL",
+        "EMPENHADO LIQUIDADO - EXERCICIO",
+        "EMPENHADO LIQUIDADO - RP",
+        "EMPENHADO LIQUIDADO - TOTAL",
+        "EMPENHADO PAGO - EXERCICIO",
+        "EMPENHADO PAGO - RP",
+        "EMPENHADO PAGO - TOTAL",
+    ]
+
+    for col in colunas_numericas:
+        if col in df.columns:
+            df[col] = df[col].apply(normalizar_numero)
+
+    if "Fonte de Recurso" in df.columns:
+        df["Origem do Recurso"] = df["Fonte de Recurso"].apply(classificar_origem_fonte)
+    else:
+        df["Origem do Recurso"] = "Não identificado"
+
+    if "Grupo de Despesa" in df.columns:
+        df["Grupo de Despesa Num"] = pd.to_numeric(df["Grupo de Despesa"], errors="coerce")
+    else:
+        df["Grupo de Despesa Num"] = pd.NA
+
+    if "Natureza da Despesa" in df.columns:
+        df["Natureza Limpa"] = (
+            df["Natureza da Despesa"]
+            .astype(str)
+            .str.replace(".", "", regex=False)
+            .str.replace("-", "", regex=False)
+            .str.replace(" ", "", regex=False)
+        )
+    else:
+        df["Natureza Limpa"] = ""
+
+    return df
+
+
+execucao = carregar_execucao_despesa()
+
+# Dados patrimoniais já existentes no painel, extraídos das demonstrações e notas.
 patrimonial = pd.DataFrame({
     "Grupo": ["Ativo Total", "Passivo", "Patrimônio Líquido"],
     "2024": [8.51, 0.85, 7.66],
@@ -538,11 +644,6 @@ patrimonial = pd.DataFrame({
 ativo_comp = pd.DataFrame({
     "Componente": ["Imobilizado", "Caixa e equivalentes", "Créditos", "Estoques", "Demais ativos"],
     "Valor": [6.95, 0.58, 0.41, 0.18, 0.35]
-})
-
-orcamentario = pd.DataFrame({
-    "Grupo": ["Dotação Atualizada", "Despesa Empenhada", "Despesa Liquidada", "Despesa Paga"],
-    "Valor": [4.90, 4.62, 4.41, 4.28]
 })
 
 financeiro = pd.DataFrame({
@@ -560,14 +661,124 @@ dvp = pd.DataFrame({
     "Valor": [5.82, 6.04, -0.22065]
 })
 
-dotacao = 4.90
-empenhado = 4.62
-liquidado = 4.41
-pago = 4.28
+# Se houver Execucao_depesa.xlsx, usa a base real da pasta. Caso contrário, mantém os números consolidados originais.
+if not execucao.empty:
+    dotacao_valor = execucao["DOTACAO FINAL SEM ALTERACAO DO QDD"].sum()
+    empenhado_valor = execucao["EMPENHADO - TOTAL"].sum()
+    liquidado_valor = execucao["EMPENHADO LIQUIDADO - TOTAL"].sum()
+    pago_valor = execucao["EMPENHADO PAGO - TOTAL"].sum()
 
-qeoc = empenhado / dotacao
-qldc = liquidado / empenhado
-qdpc = pago / liquidado
+    dotacao = dotacao_valor / 1_000_000_000
+    empenhado = empenhado_valor / 1_000_000_000
+    liquidado = liquidado_valor / 1_000_000_000
+    pago = pago_valor / 1_000_000_000
+
+    orcamentario = pd.DataFrame({
+        "Grupo": ["Dotação Atualizada", "Despesa Empenhada", "Despesa Liquidada", "Despesa Paga"],
+        "Valor": [dotacao, empenhado, liquidado, pago]
+    })
+else:
+    dotacao_valor = 4.90 * 1_000_000_000
+    empenhado_valor = 4.62 * 1_000_000_000
+    liquidado_valor = 4.41 * 1_000_000_000
+    pago_valor = 4.28 * 1_000_000_000
+
+    dotacao = 4.90
+    empenhado = 4.62
+    liquidado = 4.41
+    pago = 4.28
+
+    orcamentario = pd.DataFrame({
+        "Grupo": ["Dotação Atualizada", "Despesa Empenhada", "Despesa Liquidada", "Despesa Paga"],
+        "Valor": [dotacao, empenhado, liquidado, pago]
+    })
+
+qeoc = empenhado_valor / dotacao_valor if dotacao_valor else 0
+qldc = liquidado_valor / empenhado_valor if empenhado_valor else 0
+qdpc = pago_valor / liquidado_valor if liquidado_valor else 0
+
+
+def total_por_filtro(df, coluna_valor, filtro):
+    if df.empty or coluna_valor not in df.columns:
+        return 0.0
+    return df.loc[filtro(df), coluna_valor].sum()
+
+
+def filtro_grupo(df, numero_grupo=None, texto=None):
+    cond = pd.Series(False, index=df.index)
+    if numero_grupo is not None and "Grupo de Despesa Num" in df.columns:
+        cond = cond | (df["Grupo de Despesa Num"] == numero_grupo)
+    if texto and "Nome Grupo de Despesa" in df.columns:
+        cond = cond | df["Nome Grupo de Despesa"].astype(str).str.upper().str.contains(texto.upper(), na=False)
+    return cond
+
+
+def calcular_indicadores_execucao(df):
+    if df.empty:
+        return {
+            "pago_recursos_proprios": 0.0,
+            "pago_tesouro": 0.0,
+            "perc_recursos_proprios": 0.0,
+            "perc_tesouro": 0.0,
+            "pessoal_pago": 0.0,
+            "perc_pessoal": 0.0,
+            "custeio_pago": 0.0,
+            "perc_custeio": 0.0,
+            "investimento_pago": 0.0,
+            "perc_investimento": 0.0,
+            "contratos_pago": 0.0,
+            "perc_contratos_custeio": 0.0,
+            "rap_pago": 0.0,
+            "rap_empenhado": 0.0,
+            "perc_rap_pago": 0.0,
+        }
+
+    total_pago = df["EMPENHADO PAGO - TOTAL"].sum()
+
+    pago_por_origem = (
+        df.groupby("Origem do Recurso", dropna=False)["EMPENHADO PAGO - TOTAL"]
+        .sum()
+        .to_dict()
+    )
+
+    pago_recursos_proprios = pago_por_origem.get("Recursos Próprios", 0.0)
+    pago_tesouro = pago_por_origem.get("Tesouro", 0.0)
+
+    pessoal_pago = df.loc[filtro_grupo(df, 1, "PESSOAL"), "EMPENHADO PAGO - TOTAL"].sum()
+    custeio_pago = df.loc[filtro_grupo(df, 3, "OUTRAS DESPESAS CORRENTES"), "EMPENHADO PAGO - TOTAL"].sum()
+    investimento_pago = df.loc[filtro_grupo(df, 4, "INVESTIMENTOS"), "EMPENHADO PAGO - TOTAL"].sum()
+
+    # Estimativa por naturezas típicas de contratos continuados/serviços de terceiros.
+    # Se a base estiver agregada apenas em 3390.00.00, esse indicador pode ficar zerado.
+    padrao_contratos = ("339037", "339039", "339040")
+    contratos_pago = df.loc[
+        df["Natureza Limpa"].astype(str).str.startswith(padrao_contratos, na=False),
+        "EMPENHADO PAGO - TOTAL"
+    ].sum()
+
+    rap_pago = df["EMPENHADO PAGO - RP"].sum() if "EMPENHADO PAGO - RP" in df.columns else 0.0
+    rap_empenhado = df["EMPENHADO - RP"].sum() if "EMPENHADO - RP" in df.columns else 0.0
+
+    return {
+        "pago_recursos_proprios": pago_recursos_proprios,
+        "pago_tesouro": pago_tesouro,
+        "perc_recursos_proprios": pago_recursos_proprios / total_pago if total_pago else 0,
+        "perc_tesouro": pago_tesouro / total_pago if total_pago else 0,
+        "pessoal_pago": pessoal_pago,
+        "perc_pessoal": pessoal_pago / total_pago if total_pago else 0,
+        "custeio_pago": custeio_pago,
+        "perc_custeio": custeio_pago / total_pago if total_pago else 0,
+        "investimento_pago": investimento_pago,
+        "perc_investimento": investimento_pago / total_pago if total_pago else 0,
+        "contratos_pago": contratos_pago,
+        "perc_contratos_custeio": contratos_pago / custeio_pago if custeio_pago else 0,
+        "rap_pago": rap_pago,
+        "rap_empenhado": rap_empenhado,
+        "perc_rap_pago": rap_pago / rap_empenhado if rap_empenhado else 0,
+    }
+
+
+indic_exec = calcular_indicadores_execucao(execucao)
 
 
 # ============================================================
@@ -767,11 +978,11 @@ O Ativo Não Circulante representa 97,43% do total do ativo, com destaque para b
 </div>
 <div class="highlight-item">
 <div class="highlight-bullet green">✓</div>
-<div>O patrimônio líquido reduziu 2,92%, impactado pelo resultado patrimonial negativo.</div>
+<div>O patrimônio líquido apresentou redução no comparativo anual, devendo ser analisado junto às variações patrimoniais e à natureza pública da Universidade.</div>
 </div>
 <div class="highlight-item">
 <div class="highlight-bullet red">↘</div>
-<div>O resultado patrimonial de 2025 foi deficitário em R$ 220,65 milhões.</div>
+<div>O resultado patrimonial contábil deve ser interpretado com cautela, pois a UnB não possui natureza arrecadatória típica e parcela relevante das despesas é financiada pelo Tesouro Nacional.</div>
 </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1027,13 +1238,422 @@ else:
 
         st.markdown("""
 <div class="bloco">
-Esta página apresenta indicadores patrimoniais, orçamentários e financeiros para apoio à leitura gerencial das demonstrações contábeis. Os indicadores abaixo foram construídos com os dados já existentes no painel, sem depender de bases adicionais do Tesouro Gerencial/SIAFI detalhado.
+Esta página apresenta indicadores patrimoniais, orçamentários e financeiros para apoio à leitura gerencial das demonstrações contábeis.
+Agora, a análise também considera a origem dos recursos da execução da despesa:
+fontes iniciadas por 1050, 1051, 3050 e 3051 foram classificadas como Recursos Próprios;
+as demais foram classificadas como Tesouro.
 </div>
 """, unsafe_allow_html=True)
 
+        if execucao.empty:
+            st.warning(
+                "O arquivo Execucao_depesa.xlsx não foi encontrado na pasta. "
+                "Os indicadores abaixo serão exibidos com os dados consolidados já existentes no painel."
+            )
+
         # ------------------------------------------------------------
-        # Indicadores calculados a partir dos dados já existentes
+        # 1. Execução da despesa
         # ------------------------------------------------------------
+        st.subheader("1. Indicadores de Execução da Despesa")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "QEOC",
+                formatar_percentual(qeoc),
+                "Empenhado / Dotação"
+            )
+
+        with col2:
+            st.metric(
+                "QLDC",
+                formatar_percentual(qldc),
+                "Liquidado / Empenhado"
+            )
+
+        with col3:
+            st.metric(
+                "QDPC",
+                formatar_percentual(qdpc),
+                "Pago / Liquidado"
+            )
+
+        indicadores_exec = pd.DataFrame({
+            "KPI": ["QEOC", "QLDC", "QDPC"],
+            "Denominação": [
+                "Quociente da Execução Orçamentária da Despesa",
+                "Quociente da Liquidação da Despesa",
+                "Quociente da Despesa Paga"
+            ],
+            "Fórmula": [
+                "Despesa Empenhada / Dotação Atualizada",
+                "Despesa Liquidada / Despesa Empenhada",
+                "Despesa Paga / Despesa Liquidada"
+            ],
+            "Valor": [
+                formatar_percentual(qeoc),
+                formatar_percentual(qldc),
+                formatar_percentual(qdpc)
+            ],
+            "Leitura": [
+                "Mede o comprometimento da dotação disponível",
+                "Avalia a conversão do empenho em obrigação liquidada",
+                "Avalia a regularidade do fluxo financeiro"
+            ]
+        })
+
+        st.dataframe(indicadores_exec, use_container_width=True, hide_index=True)
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            card_analise(
+                "Execução Orçamentária",
+                f"O QEOC alcançou {formatar_percentual(qeoc)}, indicando o grau de comprometimento da dotação atualizada em relação ao volume empenhado.",
+                "good" if qeoc >= 0.90 else "warning"
+            )
+
+        with col_b:
+            card_analise(
+                "Eficiência Operacional",
+                f"O QLDC alcançou {formatar_percentual(qldc)}, demonstrando a conversão da despesa empenhada em despesa liquidada.",
+                "good" if qldc >= 0.90 else "warning"
+            )
+
+        with col_c:
+            card_analise(
+                "Fluxo Financeiro",
+                f"O QDPC alcançou {formatar_percentual(qdpc)}, indicando a proporção das despesas liquidadas que foram pagas.",
+                "good" if qdpc >= 0.90 else "warning"
+            )
+
+        st.divider()
+
+        # ------------------------------------------------------------
+        # 2. Origem dos recursos
+        # ------------------------------------------------------------
+        st.subheader("2. Origem dos Recursos: Tesouro x Recursos Próprios")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                "Pago com Tesouro",
+                fmt_moeda_excel(indic_exec["pago_tesouro"]),
+                formatar_percentual(indic_exec["perc_tesouro"])
+            )
+
+        with col2:
+            st.metric(
+                "Pago com Recursos Próprios",
+                fmt_moeda_excel(indic_exec["pago_recursos_proprios"]),
+                formatar_percentual(indic_exec["perc_recursos_proprios"])
+            )
+
+        with col3:
+            st.metric(
+                "Participação do Tesouro",
+                formatar_percentual(indic_exec["perc_tesouro"]),
+                "Demais fontes"
+            )
+
+        with col4:
+            st.metric(
+                "Participação da Arrecadação",
+                formatar_percentual(indic_exec["perc_recursos_proprios"]),
+                "Fontes 1050, 1051, 3050 e 3051"
+            )
+
+        if not execucao.empty:
+            origem = (
+                execucao.groupby("Origem do Recurso", as_index=False)[
+                    ["EMPENHADO - TOTAL", "EMPENHADO LIQUIDADO - TOTAL", "EMPENHADO PAGO - TOTAL"]
+                ]
+                .sum()
+            )
+
+            origem_long = origem.melt(
+                id_vars="Origem do Recurso",
+                var_name="Estágio",
+                value_name="Valor"
+            )
+
+            origem_long["Estágio"] = origem_long["Estágio"].replace({
+                "EMPENHADO - TOTAL": "Empenhado",
+                "EMPENHADO LIQUIDADO - TOTAL": "Liquidado",
+                "EMPENHADO PAGO - TOTAL": "Pago"
+            })
+
+            origem_long["Valor_Bi"] = origem_long["Valor"] / 1_000_000_000
+
+            fig_origem = px.bar(
+                origem_long,
+                x="Estágio",
+                y="Valor_Bi",
+                color="Origem do Recurso",
+                barmode="group",
+                text="Valor_Bi",
+                title="Execução da Despesa por Origem do Recurso",
+                color_discrete_map={
+                    "Tesouro": "#2c83ea",
+                    "Recursos Próprios": "#58c64f"
+                }
+            )
+
+            fig_origem.update_traces(texttemplate="R$ %{text:.2f} Bi", textposition="outside")
+            fig_origem.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(8,27,47,0.20)",
+                font_color="white",
+                height=390,
+                margin=dict(l=20, r=20, t=60, b=20),
+                legend_title_text="",
+                yaxis_title="R$ bilhões",
+                xaxis_title=""
+            )
+
+            st.plotly_chart(fig_origem, use_container_width=True)
+
+            fig_pizza_origem = px.pie(
+                origem,
+                names="Origem do Recurso",
+                values="EMPENHADO PAGO - TOTAL",
+                hole=0.55,
+                title="Composição da Despesa Paga por Origem do Recurso",
+                color="Origem do Recurso",
+                color_discrete_map={
+                    "Tesouro": "#2c83ea",
+                    "Recursos Próprios": "#58c64f"
+                }
+            )
+
+            fig_pizza_origem.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_color="white",
+                title_font_size=20,
+                legend_title_text=""
+            )
+
+            st.plotly_chart(fig_pizza_origem, use_container_width=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            card_analise(
+                "Dependência estrutural do Tesouro",
+                f"As despesas pagas com fontes do Tesouro representam {formatar_percentual(indic_exec['perc_tesouro'])} do total pago. Essa leitura é compatível com a natureza institucional da Universidade, cuja atividade principal não é arrecadatória.",
+                "info"
+            )
+
+        with col_b:
+            card_analise(
+                "Arrecadação própria relevante",
+                f"As fontes próprias representam {formatar_percentual(indic_exec['perc_recursos_proprios'])} da despesa paga. Embora a UnB possua arrecadação expressiva para uma universidade, a execução total ainda depende majoritariamente do Tesouro.",
+                "good"
+            )
+
+        st.divider()
+
+        # ------------------------------------------------------------
+        # 3. Pressão dos gastos e rigidez orçamentária
+        # ------------------------------------------------------------
+        st.subheader("3. Pressão dos Gastos Obrigatórios e Contratuais")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                "Pessoal e Encargos",
+                formatar_percentual(indic_exec["perc_pessoal"]),
+                fmt_moeda_excel(indic_exec["pessoal_pago"])
+            )
+
+        with col2:
+            st.metric(
+                "Custeio",
+                formatar_percentual(indic_exec["perc_custeio"]),
+                fmt_moeda_excel(indic_exec["custeio_pago"])
+            )
+
+        with col3:
+            st.metric(
+                "Investimentos",
+                formatar_percentual(indic_exec["perc_investimento"]),
+                fmt_moeda_excel(indic_exec["investimento_pago"])
+            )
+
+        with col4:
+            st.metric(
+                "Contratos/Serviços",
+                formatar_percentual(indic_exec["perc_contratos_custeio"]),
+                "Sobre o custeio"
+            )
+
+        indicadores_rigidez = pd.DataFrame({
+            "Indicador": [
+                "Peso de Pessoal e Encargos",
+                "Peso do Custeio",
+                "Peso dos Investimentos",
+                "Contratos/Serviços sobre Custeio"
+            ],
+            "Fórmula": [
+                "Despesa paga do Grupo 1 / Despesa paga total",
+                "Despesa paga do Grupo 3 / Despesa paga total",
+                "Despesa paga do Grupo 4 / Despesa paga total",
+                "Naturezas 339037, 339039 e 339040 / Custeio pago"
+            ],
+            "Valor": [
+                formatar_percentual(indic_exec["perc_pessoal"]),
+                formatar_percentual(indic_exec["perc_custeio"]),
+                formatar_percentual(indic_exec["perc_investimento"]),
+                formatar_percentual(indic_exec["perc_contratos_custeio"])
+            ],
+            "Leitura": [
+                "Mede a pressão das despesas obrigatórias de pessoal",
+                "Mede a participação das despesas correntes de funcionamento",
+                "Mede o espaço dedicado à expansão patrimonial e infraestrutura",
+                "Estima a pressão de contratos e serviços continuados sobre o custeio"
+            ]
+        })
+
+        st.dataframe(indicadores_rigidez, use_container_width=True, hide_index=True)
+
+        if not execucao.empty:
+            grupo = (
+                execucao.groupby("Nome Grupo de Despesa", as_index=False)["EMPENHADO PAGO - TOTAL"]
+                .sum()
+                .sort_values("EMPENHADO PAGO - TOTAL", ascending=False)
+            )
+
+            grupo["Valor_Bi"] = grupo["EMPENHADO PAGO - TOTAL"] / 1_000_000_000
+
+            fig_grupo = px.bar(
+                grupo,
+                x="Valor_Bi",
+                y="Nome Grupo de Despesa",
+                orientation="h",
+                text="Valor_Bi",
+                title="Despesa Paga por Grupo de Despesa"
+            )
+
+            fig_grupo.update_traces(texttemplate="R$ %{text:.2f} Bi", textposition="outside")
+            fig_grupo.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(8,27,47,0.20)",
+                font_color="white",
+                height=390,
+                margin=dict(l=20, r=20, t=60, b=20),
+                yaxis_title="",
+                xaxis_title="R$ bilhões",
+                yaxis={"categoryorder": "total ascending"}
+            )
+
+            st.plotly_chart(fig_grupo, use_container_width=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            card_analise(
+                "Peso de pessoal e encargos",
+                f"As despesas com pessoal e encargos representam {formatar_percentual(indic_exec['perc_pessoal'])} da despesa paga. Para este painel, a apuração utiliza o Grupo de Despesa 1, conforme informação do Balanço Orçamentário/execução da despesa.",
+                "info"
+            )
+
+        with col_b:
+            card_analise(
+                "Margem de gestão",
+                f"O custeio representa {formatar_percentual(indic_exec['perc_custeio'])} da despesa paga. A análise da margem discricionária depende de detalhamento adicional por natureza, contratos continuados e vinculações da fonte.",
+                "warning"
+            )
+
+        if indic_exec["contratos_pago"] == 0:
+            st.info(
+                "Observação: o indicador de contratos/serviços pode aparecer zerado quando a base estiver agregada em naturezas genéricas, como 3390.00.00. "
+                "Para medir contratos continuados com precisão, será necessário relatório do Comprasnet Contratos/SIPAC ou execução detalhada por contrato e natureza específica."
+            )
+
+        st.divider()
+
+        # ------------------------------------------------------------
+        # 4. Restos a pagar e fluxo financeiro
+        # ------------------------------------------------------------
+        st.subheader("4. Regularidade do Fluxo Financeiro e Restos a Pagar")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "Pago / Liquidado",
+                formatar_percentual(qdpc),
+                "Despesa paga / despesa liquidada"
+            )
+
+        with col2:
+            st.metric(
+                "Pagamento de RAP",
+                formatar_percentual(indic_exec["perc_rap_pago"]),
+                "Pago de RP / Empenhado em RP"
+            )
+
+        with col3:
+            st.metric(
+                "Valor Pago em RP",
+                fmt_moeda_excel(indic_exec["rap_pago"]),
+                "Empenhado pago - RP"
+            )
+
+        indicadores_fluxo = pd.DataFrame({
+            "Indicador": [
+                "Pagamento da Despesa Liquidada",
+                "Pagamento de Restos a Pagar",
+                "Valor pago em Restos a Pagar"
+            ],
+            "Fórmula": [
+                "Despesa paga / Despesa liquidada",
+                "Empenhado pago - RP / Empenhado - RP",
+                "Empenhado pago - RP"
+            ],
+            "Valor": [
+                formatar_percentual(qdpc),
+                formatar_percentual(indic_exec["perc_rap_pago"]),
+                fmt_moeda_excel(indic_exec["rap_pago"])
+            ],
+            "Leitura": [
+                "Mede a regularidade dos pagamentos do exercício",
+                "Avalia a quitação de obrigações de exercícios anteriores com base nos campos de RP da execução",
+                "Demonstra o volume financeiro pago de exercícios anteriores"
+            ]
+        })
+
+        st.dataframe(indicadores_fluxo, use_container_width=True, hide_index=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            card_analise(
+                "Pagamento da despesa liquidada",
+                f"O indicador Pago/Liquidado alcançou {formatar_percentual(qdpc)}, demonstrando a proporção das obrigações liquidadas que foram pagas.",
+                "good" if qdpc >= 0.90 else "warning"
+            )
+
+        with col_b:
+            card_analise(
+                "Restos a pagar",
+                f"O pagamento de RAP, calculado pela relação entre EMPENHADO PAGO - RP e EMPENHADO - RP, alcançou {formatar_percentual(indic_exec['perc_rap_pago'])}. Para análise contábil mais precisa de RAP inscritos, cancelados e saldo a pagar, recomenda-se relatório específico de Restos a Pagar do SIAFI/Tesouro Gerencial.",
+                "info"
+            )
+
+        st.divider()
+
+        # ------------------------------------------------------------
+        # 5. Indicadores patrimoniais consolidados
+        # ------------------------------------------------------------
+        st.subheader("5. Indicadores Patrimoniais Consolidados")
+
         ativo_total_2025 = 8.47
         passivo_2025 = 1.03
         patrimonio_liquido_2025 = 7.44
@@ -1041,181 +1661,12 @@ Esta página apresenta indicadores patrimoniais, orçamentários e financeiros p
         ativo_nao_circulante_2025 = 8.25452526463
         passivo_circulante_estimado = 1.03
         resultado_patrimonial_2025 = -0.22065
-        ingressos_financeiros = 6.10
-        resultado_financeiro = 0.15
 
         passivo_ativo = passivo_2025 / ativo_total_2025
         pl_ativo = patrimonio_liquido_2025 / ativo_total_2025
         liquidez_corrente = ativo_circulante_2025 / passivo_circulante_estimado
-        imobilizacao_patrimonio = ativo_nao_circulante_2025 / patrimonio_liquido_2025
-        resultado_sobre_ativo = resultado_patrimonial_2025 / ativo_total_2025
-        resultado_financeiro_ingressos = resultado_financeiro / ingressos_financeiros
-
-        # Indicadores de execução já existentes
-        # qeoc = empenhado / dotacao
-        # qldc = liquidado / empenhado
-        # qdpc = pago / liquidado
-        restos_a_pagar_estimado = empenhado - pago
-        restos_sobre_empenhado = restos_a_pagar_estimado / empenhado
-        pago_sobre_empenhado = pago / empenhado
-
-        st.subheader("1. Indicadores de Execução da Despesa")
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric(
-                "Empenhado / Dotação",
-                formatar_percentual(qeoc),
-                "Comprometimento orçamentário"
-            )
-
-        with col2:
-            st.metric(
-                "Liquidado / Empenhado",
-                formatar_percentual(qldc),
-                "Conversão em obrigação"
-            )
-
-        with col3:
-            st.metric(
-                "Pago / Liquidado",
-                formatar_percentual(qdpc),
-                "Regularidade do pagamento"
-            )
-
-        with col4:
-            st.metric(
-                "Pago / Empenhado",
-                formatar_percentual(pago_sobre_empenhado),
-                "Execução financeira global"
-            )
-
-        indicadores_exec = pd.DataFrame({
-            "Indicador": [
-                "Empenhado / Dotação",
-                "Liquidado / Empenhado",
-                "Pago / Liquidado",
-                "Pago / Empenhado"
-            ],
-            "Pergunta que responde": [
-                "Quanto da dotação autorizada foi comprometida?",
-                "Quanto da despesa empenhada virou obrigação reconhecida?",
-                "A Universidade consegue pagar o que foi liquidado?",
-                "Quanto do orçamento empenhado chegou ao pagamento?"
-            ],
-            "Fórmula": [
-                "Despesa Empenhada / Dotação Atualizada",
-                "Despesa Liquidada / Despesa Empenhada",
-                "Despesa Paga / Despesa Liquidada",
-                "Despesa Paga / Despesa Empenhada"
-            ],
-            "Valor": [
-                formatar_percentual(qeoc),
-                formatar_percentual(qldc),
-                formatar_percentual(qdpc),
-                formatar_percentual(pago_sobre_empenhado)
-            ],
-            "Leitura": [
-                "Mede o grau de comprometimento da dotação disponível.",
-                "Avalia a efetividade da execução operacional da despesa.",
-                "Mede a regularidade do fluxo financeiro de pagamento.",
-                "Indica a proporção da despesa empenhada que foi efetivamente paga."
-            ]
-        })
-
-        st.dataframe(indicadores_exec, use_container_width=True, hide_index=True)
-
-        st.divider()
-
-        st.subheader("2. Regularidade do Fluxo Financeiro")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.metric(
-                "Pagamento da Despesa Liquidada",
-                formatar_percentual(qdpc),
-                "Despesa Paga / Despesa Liquidada"
-            )
-
-        with col2:
-            st.metric(
-                "Restos a Pagar estimados / Empenhado",
-                formatar_percentual(restos_sobre_empenhado),
-                "(Empenhado - Pago) / Empenhado"
-            )
-
-        with col3:
-            st.metric(
-                "Resultado Financeiro / Ingressos",
-                formatar_percentual(resultado_financeiro_ingressos),
-                "Resultado Financeiro / Ingressos"
-            )
-
-        indicadores_fluxo = pd.DataFrame({
-            "Indicador": [
-                "Pagamento da despesa liquidada",
-                "Restos a pagar estimados sobre empenhado",
-                "Resultado financeiro sobre ingressos"
-            ],
-            "Pergunta que responde": [
-                "A Universidade consegue pagar o que foi liquidado?",
-                "Qual parcela da despesa empenhada pode pressionar exercícios seguintes?",
-                "O fluxo financeiro apresentou folga ou pressão no exercício?"
-            ],
-            "Fórmula": [
-                "Despesa Paga / Despesa Liquidada",
-                "(Despesa Empenhada - Despesa Paga) / Despesa Empenhada",
-                "Resultado Financeiro / Ingressos"
-            ],
-            "Valor": [
-                formatar_percentual(qdpc),
-                formatar_percentual(restos_sobre_empenhado),
-                formatar_percentual(resultado_financeiro_ingressos)
-            ],
-            "Leitura": [
-                "Quanto mais próximo de 100%, maior a regularidade do pagamento das despesas liquidadas.",
-                "Indica possível postergação de obrigações para exercícios seguintes. É uma aproximação gerencial, não substitui o valor oficial de RAP inscrito.",
-                "Mostra o peso do resultado financeiro em relação aos ingressos do período."
-            ]
-        })
-
-        st.dataframe(indicadores_fluxo, use_container_width=True, hide_index=True)
-
-        st.divider()
-
-        st.subheader("3. Indicadores Patrimoniais")
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric(
-                "Passivo / Ativo",
-                formatar_percentual(passivo_ativo),
-                "Pressão das obrigações"
-            )
-
-        with col2:
-            st.metric(
-                "PL / Ativo",
-                formatar_percentual(pl_ativo),
-                "Estrutura patrimonial"
-            )
-
-        with col3:
-            st.metric(
-                "Liquidez Corrente",
-                f"{liquidez_corrente:.2f}".replace(".", ","),
-                "Ativo Circ. / Passivo Circ."
-            )
-
-        with col4:
-            st.metric(
-                "Imobilização do Patrimônio",
-                f"{imobilizacao_patrimonio:.2f}".replace(".", ","),
-                "ANC / PL"
-            )
+        imobilizacao_pl = ativo_nao_circulante_2025 / patrimonio_liquido_2025
+        resultado_ativo = resultado_patrimonial_2025 / ativo_total_2025
 
         indicadores_patrimoniais = pd.DataFrame({
             "Indicador": [
@@ -1224,13 +1675,6 @@ Esta página apresenta indicadores patrimoniais, orçamentários e financeiros p
                 "Liquidez Corrente",
                 "Imobilização do Patrimônio",
                 "Resultado Patrimonial / Ativo"
-            ],
-            "Pergunta que responde": [
-                "Quanto do ativo está relacionado a obrigações?",
-                "Qual a participação do patrimônio líquido na estrutura patrimonial?",
-                "Há capacidade contábil de curto prazo frente às obrigações de curto prazo?",
-                "Quanto do patrimônio está aplicado em ativos de longo prazo?",
-                "Qual o impacto do resultado patrimonial sobre o ativo total?"
             ],
             "Fórmula": [
                 "Passivo Exigível / Ativo Total",
@@ -1243,110 +1687,57 @@ Esta página apresenta indicadores patrimoniais, orçamentários e financeiros p
                 formatar_percentual(passivo_ativo),
                 formatar_percentual(pl_ativo),
                 f"{liquidez_corrente:.2f}".replace(".", ","),
-                f"{imobilizacao_patrimonio:.2f}".replace(".", ","),
-                formatar_percentual(resultado_sobre_ativo)
+                f"{imobilizacao_pl:.2f}".replace(".", ","),
+                formatar_percentual(resultado_ativo)
             ],
             "Leitura": [
-                "Mede a pressão relativa das obrigações sobre o patrimônio.",
-                "Evidencia a predominância do patrimônio líquido no financiamento do ativo.",
-                "Indica a relação entre recursos de curto prazo e obrigações de curto prazo.",
-                "Mostra a concentração do patrimônio em ativos permanentes, comum em universidades.",
-                "Indica quanto o déficit ou superávit patrimonial representa em relação ao ativo total."
+                "Pressão relativa das obrigações sobre o patrimônio",
+                "Participação do patrimônio líquido no financiamento do ativo",
+                "Capacidade contábil de curto prazo",
+                "Grau de concentração do patrimônio em ativos de longo prazo",
+                "Resultado contábil em relação ao ativo total"
             ]
         })
 
         st.dataframe(indicadores_patrimoniais, use_container_width=True, hide_index=True)
 
-        st.divider()
-
-        st.subheader("4. Leitura Gerencial Automática")
-
-        col_a, col_b, col_c = st.columns(3)
+        col_a, col_b = st.columns(2)
 
         with col_a:
             card_analise(
-                "Regularidade do fluxo financeiro",
-                f"O indicador Pago / Liquidado alcançou {formatar_percentual(qdpc)}, demonstrando elevada conversão das despesas liquidadas em pagamentos no exercício.",
+                "Estrutura patrimonial",
+                f"O patrimônio líquido representa {formatar_percentual(pl_ativo)} do ativo total, evidenciando estrutura patrimonial majoritariamente financiada por patrimônio líquido.",
                 "good"
             )
 
         with col_b:
             card_analise(
-                "Possível pressão de restos a pagar",
-                f"A diferença estimada entre empenhado e pago representa {formatar_percentual(restos_sobre_empenhado)} da despesa empenhada. Esse indicador é útil como alerta gerencial, mas deve ser comparado ao valor oficial de restos a pagar inscritos no Balanço Orçamentário.",
-                "warning"
-            )
-
-        with col_c:
-            card_analise(
-                "Estrutura patrimonial sólida",
-                f"O patrimônio líquido representa {formatar_percentual(pl_ativo)} do ativo total, indicando predominância de recursos próprios na estrutura patrimonial.",
-                "good"
-            )
-
-        col_d, col_e, col_f = st.columns(3)
-
-        with col_d:
-            card_analise(
-                "Alta imobilização patrimonial",
-                f"O indicador de imobilização do patrimônio é {imobilizacao_patrimonio:.2f}, refletindo a forte presença de bens permanentes, imóveis, laboratórios e infraestrutura universitária.".replace(".", ","),
+                "Cautela na leitura do resultado patrimonial",
+                "O resultado patrimonial contábil não deve ser interpretado isoladamente como insuficiência financeira ou baixa capacidade de arrecadação. A UnB não possui natureza arrecadatória típica e parte relevante de suas despesas é financiada pelo Tesouro Nacional.",
                 "info"
-            )
-
-        with col_e:
-            card_analise(
-                "Liquidez corrente reduzida",
-                f"A liquidez corrente de {liquidez_corrente:.2f} sugere necessidade de leitura cuidadosa dos recursos e obrigações de curto prazo, especialmente considerando vinculações e especificidades do setor público.".replace(".", ","),
-                "warning"
-            )
-
-        with col_f:
-            card_analise(
-                "Resultado patrimonial negativo",
-                f"O resultado patrimonial representou {formatar_percentual(resultado_sobre_ativo)} do ativo total. Embora o percentual seja pequeno frente ao ativo, o resultado negativo deve ser acompanhado nas próximas demonstrações.",
-                "risk"
             )
 
         st.divider()
 
-        st.subheader("5. Indicadores ainda não calculados com a base atual")
+        # ------------------------------------------------------------
+        # 6. Base usada
+        # ------------------------------------------------------------
+        st.subheader("6. Base utilizada")
 
         st.markdown("""
 <div class="bloco">
-Alguns indicadores sugeridos são importantes, mas exigem bases complementares além dos PDFs das demonstrações contábeis. Eles podem ser incluídos em etapa futura com extrações do SIAFI/Tesouro Gerencial ou planilha de apoio da DCF.
+<b>Regra de classificação das fontes:</b><br>
+Fontes iniciadas por <b>1050, 1051, 3050 e 3051</b> foram classificadas como <b>Recursos Próprios</b>, decorrentes de arrecadação.
+Todas as demais fontes foram classificadas como <b>Tesouro</b>.
+<br><br>
+<b>Despesa de pessoal e encargos:</b><br>
+Foi considerada a despesa paga vinculada ao <b>Grupo de Despesa 1</b>, conforme Balanço Orçamentário/execução da despesa.
 </div>
 """, unsafe_allow_html=True)
 
-        pendentes = pd.DataFrame({
-            "Indicador": [
-                "Peso da despesa com pessoal",
-                "Peso dos contratos continuados",
-                "Custeio discricionário disponível",
-                "Pagamento oficial de restos a pagar inscritos"
-            ],
-            "Fórmula desejada": [
-                "Despesa com Pessoal / Despesa Total",
-                "Despesas Contratuais Continuadas / Custeio Total",
-                "Custeio Discricionário / Custeio Total",
-                "Restos a Pagar Pagos / Restos a Pagar Inscritos"
-            ],
-            "Por que ainda não entra plenamente": [
-                "Exige segregação por natureza/modalidade da despesa ou base orçamentária detalhada.",
-                "Exige identificação dos contratos continuados, normalmente fora da demonstração contábil sintética.",
-                "Exige classificação específica do custeio discricionário e das despesas obrigatórias.",
-                "Depende do valor oficial de RAP inscritos e pagos, quando não estiver explicitado de forma estruturada na base atual."
-            ]
-        })
-
-        st.dataframe(pendentes, use_container_width=True, hide_index=True)
-
-        st.subheader("Síntese dos indicadores")
-
-        card_analise(
-            "Leitura consolidada",
-            "Os indicadores disponíveis sugerem estrutura patrimonial favorável, elevada execução orçamentária, boa conversão da despesa liquidada em pagamento e necessidade de acompanhamento da liquidez corrente, da imobilização patrimonial e da evolução do resultado patrimonial.",
-            "good"
-        )
+        if not execucao.empty:
+            with st.expander("Visualizar primeiras linhas da base Execucao_depesa.xlsx"):
+                st.dataframe(execucao.head(50), use_container_width=True)
 
 
     elif menu == "Demonstrações Contábeis":
@@ -1437,7 +1828,7 @@ Esta página apresenta conceitos básicos usados no painel, com linguagem acess�
 
             glossario_item(
                 "Resultado Patrimonial",
-                "É a diferença entre as Variações Patrimoniais Aumentativas e as Variações Patrimoniais Diminutivas. Pode indicar superávit ou déficit patrimonial."
+                "É a diferença entre as Variações Patrimoniais Aumentativas e as Variações Patrimoniais Diminutivas. No setor público, deve ser analisado com cautela e em conjunto com as fontes de financiamento, especialmente quando parte relevante das despesas é custeada pelo Tesouro Nacional."
             )
 
             glossario_item(
