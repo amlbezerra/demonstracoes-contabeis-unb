@@ -365,6 +365,51 @@ hr {
         grid-template-columns: 1fr;
     }
 }
+
+/* Ajustes de legibilidade dos gráficos e botões */
+.js-plotly-plot .plotly .gtitle {
+    fill: white !important;
+    font-weight: 800 !important;
+}
+
+.stDownloadButton button {
+    background: linear-gradient(135deg, #1d7ff0, #0b4f79) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.70rem 1.25rem !important;
+    font-weight: 800 !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+.stDownloadButton button:hover {
+    background: linear-gradient(135deg, #2563eb, #0f766e) !important;
+    color: white !important;
+    transform: translateY(-1px);
+}
+
+.stDownloadButton button p,
+.stDownloadButton button span {
+    color: white !important;
+    font-weight: 800 !important;
+}
+
+[data-testid="stDataFrame"] {
+    background: rgba(7, 28, 48, 0.78);
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Botões em geral, mantendo contraste no tema escuro */
+.stButton button {
+    color: white !important;
+    background: rgba(29,127,240,0.85) !important;
+    border: 1px solid rgba(255,255,255,0.20) !important;
+    border-radius: 12px !important;
+    font-weight: 800 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -374,31 +419,64 @@ hr {
 # ============================================================
 
 def grafico_barra(df, x, y, color=None, title=""):
-    fig = px.bar(df, x=x, y=y, color=color, text=y, title=title)
-    fig.update_traces(texttemplate="R$ %{text:,.2f} Bi", textposition="outside")
+    fig = px.bar(
+        df,
+        x=x,
+        y=y,
+        color=color,
+        text=y,
+        title=title
+    )
+
+    fig.update_traces(
+        texttemplate="R$ %{text:,.2f} Bi",
+        textposition="outside",
+        textfont=dict(color="white", size=14)
+    )
+
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(8,27,47,0.45)",
-        font_color="white",
-        title_font_size=20,
+        font=dict(color="white", size=14),
+        title_font=dict(size=20, color="white"),
         margin=dict(l=20, r=20, t=60, b=20),
-        legend_title_text=""
+        legend_title_text="",
+        legend=dict(font=dict(color="white", size=14)),
+        xaxis=dict(tickfont=dict(color="white"), title_font=dict(color="white")),
+        yaxis=dict(tickfont=dict(color="white"), title_font=dict(color="white"))
     )
+
     return fig
 
 
 def grafico_pizza(df, names, values, title=""):
-    fig = px.pie(df, names=names, values=values, hole=0.55, title=title)
+    fig = px.pie(
+        df,
+        names=names,
+        values=values,
+        hole=0.55,
+        title=title,
+        color_discrete_sequence=["#3B82F6", "#4ADE80", "#F59E0B", "#EF4444"]
+    )
+
+    fig.update_traces(
+        textfont_size=16,
+        textfont_color="white",
+        marker=dict(line=dict(color="#081B2F", width=2))
+    )
+
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
-        font_color="white",
-        title_font_size=20,
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white", size=15),
+        title_font=dict(size=20, color="white"),
+        legend=dict(font=dict(size=15, color="white")),
         legend_title_text=""
     )
-    return fig
 
+    return fig
 
 def grafico_rosca_estrutura():
     labels = ["Ativo Não Circulante", "Ativo Circulante"]
@@ -462,7 +540,8 @@ def grafico_comparativo():
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(8,27,47,0.20)",
-        font_color="white",
+        font=dict(color="white", size=14),
+        title_font=dict(color="white", size=20),
         height=300,
         margin=dict(l=10, r=10, t=20, b=20),
         legend=dict(orientation="h", y=-0.18, x=0.35),
@@ -590,6 +669,18 @@ def carregar_execucao_despesa():
     df = pd.read_excel(ARQUIVO_EXECUCAO)
 
     df.columns = [str(c).strip() for c in df.columns]
+
+    # O arquivo do Tesouro Gerencial/SIAFI costuma trazer uma linha final “T O T A L”.
+    # Essa linha já soma todos os registros anteriores. Se ela permanecer na base,
+    # todos os valores ficam duplicados no painel.
+    if "Exercício" in df.columns:
+        marcador_total = (
+            df["Exercício"]
+            .astype(str)
+            .str.upper()
+            .str.replace(" ", "", regex=False)
+        )
+        df = df[~marcador_total.str.contains("TOTAL", na=False)].copy()
 
     colunas_numericas = [
         "DOTACAO FINAL SEM ALTERACAO DO QDD",
@@ -1406,12 +1497,16 @@ as demais foram classificadas como Tesouro.
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(8,27,47,0.20)",
-                font_color="white",
+                font=dict(color="white", size=14),
+                title_font=dict(size=20, color="white"),
                 height=390,
                 margin=dict(l=20, r=20, t=60, b=20),
                 legend_title_text="",
+                legend=dict(font=dict(color="white", size=14)),
                 yaxis_title="R$ bilhões",
-                xaxis_title=""
+                xaxis_title="",
+                xaxis=dict(tickfont=dict(color="white"), title_font=dict(color="white")),
+                yaxis=dict(tickfont=dict(color="white"), title_font=dict(color="white"))
             )
 
             st.plotly_chart(fig_origem, use_container_width=True)
@@ -1429,11 +1524,19 @@ as demais foram classificadas como Tesouro.
                 }
             )
 
+            fig_pizza_origem.update_traces(
+                textfont_size=16,
+                textfont_color="white",
+                marker=dict(line=dict(color="#081B2F", width=2))
+            )
+
             fig_pizza_origem.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
-                font_color="white",
-                title_font_size=20,
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white", size=15),
+                title_font=dict(size=20, color="white"),
+                legend=dict(font=dict(size=15, color="white")),
                 legend_title_text=""
             )
 
